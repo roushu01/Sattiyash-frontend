@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, { useState,useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
+import {useLocation} from "react-router-dom";
+import axios from "axios";
 import {
   ArrowLeft,
   CreditCard,
@@ -15,10 +17,42 @@ import {
 } from "lucide-react";
 
 const CheckoutPage = () => {
+  const location = useLocation();
+  const cartItems=location.state?.cartItems || [];
+  console.log("Received Checkout Items:", cartItems);
   const navigate = useNavigate();
-
+  const [sizes, setSizes] = useState({});
+  const [quantities, setQuantities] = useState({});
   const { cart } = useCart();
+  const [walletBalance, setWalletBalance] = useState(0);
+const [useCoins, setUseCoins] = useState(false);
 
+useEffect(() => {
+  fetchWalletBalance();
+}, []);
+
+const fetchWalletBalance = async () => {
+  try {
+    const res = await axios.get(
+      "https://sattiyash-backend.onrender.com/referral-code",
+      {
+        withCredentials: true,
+      }
+    );
+
+    setWalletBalance(
+      res.data.walletBalance || 0
+    );
+  } catch (error) {
+    console.log(error);
+  }
+};
+  const canUseCoins = walletBalance > 10;
+
+  const walletDiscount =
+    useCoins && canUseCoins
+      ? Math.floor(walletBalance / 10)
+      : 0;
   const [paymentMethod, setPaymentMethod] =
     useState("card");
 
@@ -31,53 +65,59 @@ const CheckoutPage = () => {
 const [couponCode, setCouponCode] = useState("");
 const [appliedCoupon, setAppliedCoupon] = useState(null);
 const [couponMessage, setCouponMessage] = useState("");
+const [address, setAddress] = useState({
+  firstName: "",
+  lastName: "",
+  landmark: "",
+  city: "",
+  state: "",
+  country: "India",
+  pincode: "",
+});
 
+const [email, setEmail] = useState("");
   // UNIQUE PRODUCTS
   const uniqueCart = [
-    ...new Map(
-      cart.map((item) => [item.id, item])
-    ).values(),
-  ];
+  ...new Map(
+    cartItems.map((item) => [
+      item.productId._id,
+      item,
+    ])
+  ).values(),
+];
 
   // SIZE STATE
-  const [sizes, setSizes] = useState(
-    uniqueCart.reduce((acc, item) => {
-      acc[item.id] = "M";
-      return acc;
-    }, {})
-  );
+  useEffect(() => {
+  const initialSizes = {};
+  const initialQuantities = {};
 
-  // QUANTITY STATE
-  const [quantities, setQuantities] =
-    useState(
-      uniqueCart.reduce((acc, item) => {
-        acc[item.id] =
-          cart.filter(
-            (cartItem) =>
-              cartItem.id === item.id
-          ).length || 1;
+  uniqueCart.forEach((item) => {
+    initialSizes[item.productId._id] =
+      item.size || "M";
 
-        return acc;
-      }, {})
-    );
+    initialQuantities[item.productId._id] =
+      item.quantity || 1;
+  });
 
+  setSizes(initialSizes);
+  setQuantities(initialQuantities);
+}, [cartItems]);
   // SUBTOTAL
   const subtotal = uniqueCart.reduce(
-    (total, item) => {
-      const cleanPrice = parseInt(
-        String(
-          item.price || "0"
-        ).replace(/[^\d]/g, "")
-      );
+  (total, item) => {
+    const price =
+      item.productId?.Discounted_price || 0;
 
-      return (
-        total +
-        cleanPrice *
-          (quantities[item.id] || 1)
-      );
-    },
-    0
-  );
+    return (
+      total +
+      price *
+        (quantities[
+          item.productId._id
+        ] || 1)
+    );
+  },
+  0
+);
  // APPLY COUPON
 const applyCoupon = () => {
   const code = couponCode.trim().toUpperCase();
@@ -144,10 +184,20 @@ if (discount > baseTotal) {
   discount = baseTotal;
 }
 
-const grandTotal = baseTotal - discount;
+const totalAfterCoupon =
+  baseTotal - discount;
+
+const finalWalletDiscount =
+  walletDiscount > totalAfterCoupon
+    ? totalAfterCoupon
+    : walletDiscount;
+
+const grandTotal =
+  totalAfterCoupon -
+  finalWalletDiscount;
 
   // EMPTY CART
-  if (cart.length === 0) {
+  if (cartItems.length === 0) {
     return (
       <div className="h-screen flex flex-col items-center justify-center lg:ml-[220px] bg-[#FDFDFD]">
         <h2 className="text-sm font-black uppercase tracking-widest text-gray-300 mb-6">
@@ -165,7 +215,67 @@ const grandTotal = baseTotal - discount;
       </div>
     );
   }
+const createOrder = async () => {
+  try {
+     const coinsUsed = useCoins
+        ? finalWalletDiscount * 10
+        : 0;
+      console.log(coinsUsed)   
+    const orderData = {
+      email,
+     
+      products: uniqueCart.map((item) => ({
+        productID: item.productId._id,
+        quantity: quantities[item.productId._id] || 1,
+        size: String(sizes[item.productId._id]).toUpperCase(),
+      })),
 
+      shippingAddress: {
+        firstName: address.firstName,
+        lastName: address.lastName,
+        address: address.landmark,
+        city: address.city,
+        state: address.state,
+        country: address.country,
+        pincode: address.pincode,
+      },
+
+      totalAmount: grandTotal,
+
+      paymentMethod:
+        paymentMethod === "cod"
+          ? "COD"
+          : "Card",
+
+      paymentStatus:
+        paymentMethod === "cod"
+          ? "Pending"
+          : "Paid",
+
+      orderStatus: "Pending",
+      coins:coinsUsed
+    };
+
+    const response = await axios.post(
+      "https://sattiyash-backend.onrender.com/order",
+      orderData,
+      {
+        withCredentials: true,
+      }
+    );
+
+    alert(response.data.message);
+
+    navigate("/orders");
+  } catch (error) {
+    console.log(error);
+
+    alert(
+      error.response?.data?.message ||
+      "Order creation failed"
+    );
+  }
+};
   return (
     <div className="min-h-screen lg:ml-[220px] bg-[#F8F8F8] font-jakarta pt-24 pb-20 px-4 sm:px-6 md:px-12 relative overflow-hidden overflow-y-auto custom-scrollbar">
 
@@ -222,6 +332,8 @@ const grandTotal = baseTotal - discount;
 
               <input
                 type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email Address for Invoice"
                 className="w-full rounded-[1.7rem] px-5 md:px-6 py-4 md:py-5 text-sm md:text-xs outline-none border border-black/10 bg-white shadow-sm"
               />
@@ -238,35 +350,48 @@ const grandTotal = baseTotal - discount;
               </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-
                 <input
                   type="text"
                   placeholder="First Name"
+                  value={address.firstName}
+                  onChange={(e) => setAddress({...address, firstName: e.target.value})}
                   className="w-full rounded-[1.7rem] px-5 md:px-6 py-4 md:py-5 text-sm md:text-xs outline-none border border-black/10 bg-white shadow-sm"
                 />
-
                 <input
                   type="text"
                   placeholder="Last Name"
+                  value={address.lastName}
+                  onChange={(e) => setAddress({...address, lastName: e.target.value})}
                   className="w-full rounded-[1.7rem] px-5 md:px-6 py-4 md:py-5 text-sm md:text-xs outline-none border border-black/10 bg-white shadow-sm"
                 />
-
                 <input
                   type="text"
                   placeholder="Address / House No."
+                  value={address.landmark}
+                  onChange={(e) => setAddress({...address, landmark: e.target.value})}
                   className="sm:col-span-2 w-full rounded-[1.7rem] px-5 md:px-6 py-4 md:py-5 text-sm md:text-xs outline-none border border-black/10 bg-white shadow-sm"
                 />
-
                 <input
                   type="text"
                   placeholder="City"
+                  value={address.city}
+                  onChange={(e) => setAddress({...address, city: e.target.value})}
                   className="w-full rounded-[1.7rem] px-5 md:px-6 py-4 md:py-5 text-sm md:text-xs outline-none border border-black/10 bg-white shadow-sm"
                 />
 
                 <input
                   type="text"
                   placeholder="Pincode"
+                  value={address.pincode}
+                  onChange={(e) => setAddress({...address, pincode: e.target.value})}
                   className="w-full rounded-[1.7rem] px-5 md:px-6 py-4 md:py-5 text-sm md:text-xs outline-none border border-black/10 bg-white shadow-sm"
+                />
+                <input
+                  type="text"
+                  placeholder="State"
+                  value={address.state}
+                  onChange={(e) => setAddress({...address, state: e.target.value})}
+                  className="sm:col-span-2 w-full rounded-[1.7rem] px-5 md:px-6 py-4 md:py-5 text-sm md:text-xs outline-none border border-black/10 bg-white shadow-sm"
                 />
               </div>
             </section>
@@ -374,14 +499,10 @@ const grandTotal = baseTotal - discount;
                         <div className="w-full sm:w-24 h-[240px] sm:h-28 rounded-[1.5rem] overflow-hidden bg-[#f4f4f4] shrink-0">
 
                           <img
-                            src={
-                              item.img ||
-                              item.image ||
-                              "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=100"
-                            }
+                            src={item.productId?.image}
                             className="w-full h-full object-cover"
                             alt={
-                              item.name
+                              item.productId?.name
                             }
                           />
                         </div>
@@ -390,54 +511,63 @@ const grandTotal = baseTotal - discount;
                         <div className="flex-1">
 
                           <p className="text-[16px] sm:text-[13px] font-black uppercase mb-2 leading-tight">
-                            {item.name}
+                            {item.productId?.name}
                           </p>
 
                           <p className="text-[13px] font-black opacity-60 mb-5">
-                            {item.price}
+                            {item.productId?.Discounted_price}
                           </p>
 
                           {/* SIZE */}
                           <div className="flex items-center gap-2 mb-5 flex-wrap justify-start">
 
-                            {[
-                              "S",
-                              "M",
-                              "L",
-                              "XL",
-                            ].map(
-                              (
-                                size
-                              ) => (
-                                <button
-                                  key={
-                                    size
-                                  }
-                                  onClick={() =>
-                                    setSizes(
-                                      {
-                                        ...sizes,
-                                        [item.id]:
-                                          size,
-                                      }
-                                    )
-                                  }
-                                  className={`w-12 h-12 md:w-11 md:h-11 rounded-full text-[11px] md:text-[10px] font-black border transition-all duration-300 ${
-                                    sizes[
-                                      item
-                                        .id
-                                    ] ===
-                                    size
-                                      ? "bg-black text-white border-black shadow-lg"
-                                      : "bg-white border-black/10"
-                                  }`}
-                                >
-                                  {
-                                    size
-                                  }
-                                </button>
-                              )
-                            )}
+                           {["S", "M", "L", "XL"].map((size) => {
+  const availableSizes =
+    item.productId?.Size || [];
+
+  const isAvailable =
+    availableSizes.includes(size);
+
+  return (
+    <button
+      key={size}
+      disabled={!isAvailable}
+      onClick={() => {
+        if (isAvailable) {
+          setSizes({
+            ...sizes,
+            [item.productId._id]: size,
+          });
+        }
+      }}
+      className={`
+        w-12 h-12 md:w-11 md:h-11
+        rounded-full
+        text-[11px]
+        md:text-[10px]
+        font-black
+        border
+        transition-all
+        duration-300
+
+        ${
+          sizes[item.productId._id] === size
+            ? "bg-black text-white border-black shadow-lg"
+            : ""
+        }
+
+        ${
+          !isAvailable
+            ? "opacity-30 cursor-not-allowed line-through border-red-300"
+            : "bg-white border-black/10 hover:border-black"
+        }
+      `}
+    >
+      {size}
+    </button>
+  );
+})}
+                            
                           </div>
 
                           {/* QUANTITY */}
@@ -450,15 +580,15 @@ const grandTotal = baseTotal - discount;
                                   setQuantities(
                                     {
                                       ...quantities,
-                                      [item.id]:
+                                      [item.productId._id]:
                                         quantities[
                                           item
-                                            .id
+                                            .productId._id
                                         ] >
                                         1
                                           ? quantities[
                                               item
-                                                .id
+                                                .productId._id
                                             ] -
                                             1
                                           : 1,
@@ -477,7 +607,7 @@ const grandTotal = baseTotal - discount;
                                 {
                                   quantities[
                                     item
-                                      .id
+                                      .productId._id
                                   ]
                                 }
                               </span>
@@ -487,10 +617,10 @@ const grandTotal = baseTotal - discount;
                                   setQuantities(
                                     {
                                       ...quantities,
-                                      [item.id]:
+                                      [item.productId._id]:
                                         quantities[
                                           item
-                                            .id
+                                            .productId._id
                                         ] +
                                         1,
                                     }
@@ -509,7 +639,7 @@ const grandTotal = baseTotal - discount;
                               ₹
                               {parseInt(
                                 String(
-                                  item.price
+                                  item.productId?.Discounted_price
                                 ).replace(
                                   /[^\d]/g,
                                   ""
@@ -517,7 +647,7 @@ const grandTotal = baseTotal - discount;
                               ) *
                                 quantities[
                                   item
-                                    .id
+                                    .productId._id
                                 ]}
                             </span>
                           </div>
@@ -576,6 +706,43 @@ const grandTotal = baseTotal - discount;
                   </span>
                 </div>
               </motion.div>
+              <motion.div
+            className="mb-5 border rounded-[2rem] p-5"
+          >
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-[10px] font-black uppercase">
+                  Use Reward Coins
+                </p>
+
+                <p className="text-[9px] opacity-60">
+                    Available Coins: {walletBalance}
+                  </p>
+
+                  {walletBalance <= 10 && (
+                    <p className="text-[9px] text-red-500 mt-1">
+                      Minimum 10 coins required to redeem
+                    </p>
+                  )}
+
+                <p className="text-[9px] opacity-60">
+                  Value: ₹
+                  {Math.floor(walletBalance *0.5)}
+                </p>
+              </div>
+
+             <input
+              type="checkbox"
+              checked={useCoins}
+              disabled={!canUseCoins}
+              onChange={() => {
+                if (canUseCoins) {
+                  setUseCoins(!useCoins);
+                }
+              }}
+            />
+            </div>
+          </motion.div>
 
               {/* DONATION */}
               <motion.div
@@ -757,6 +924,7 @@ const grandTotal = baseTotal - discount;
 
               {/* BUTTON */}
               <motion.button
+                  onClick={createOrder}
                 whileHover={{
                   y: -3,
                   scale: 1.01,

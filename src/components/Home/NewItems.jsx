@@ -3,44 +3,38 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Heart, ShoppingBag, ArrowRight, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../../context/CartContext";
+import axios from "axios";
 
-const products = [
-  {
-    id: 6,
-    name: "Midnight Boxy Hoodie",
-    price: "₹3,499",
-    image: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=1000",
-  },
-  {
-    id: 7,
-    name: "Acid Wash Graphic Tee",
-    price: "₹1,899",
-    image: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?q=80&w=1000",
-  },
-  {
-    id: 8,
-    name: "Utility Cargo Joggers",
-    price: "₹2,999",
-    image: "",
-  },
-  {
-    id: 9,
-    name: "Vintage Flannel Shirt",
-    price: "₹2,499",
-    image: "https://images.unsplash.com/photo-1617137968427-85924c800a22?q=80&w=1000",
-  },
-  {
-    id: 10,
-    name: "Heavyweight Boxy Tee",
-    price: "₹1,699",
-    image: "https://images.unsplash.com/photo-1576566588028-4147f3842f27?q=80&w=1000",
-  },
-];
 
 
 const NewItems = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(4.5);
+  const [products,setProducts]=useState([]);
+  const [loading,setLoading]=useState(true);
+
+  useEffect(() => {
+  const fetchProducts = async () => {
+    try {
+      const response = await axios.get(
+        "https://sattiyash-backend.onrender.com/getProduct"
+      );
+
+      console.log(response.data);
+
+      // Adjust according to your backend response
+      setProducts(response.data.data);
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchProducts();
+}, []);
+
+
   const navigate = useNavigate();
   const { addToCart } = useCart();
 
@@ -70,7 +64,13 @@ const NewItems = () => {
   const prevSlide = () => {
     if (currentIndex > 0) setCurrentIndex((prev) => prev - 1);
   };
-
+if (loading) {
+  return (
+    <div className="h-screen flex items-center justify-center">
+      Loading Products...
+    </div>
+  );
+}
   return (
     <section
       style={{
@@ -152,11 +152,11 @@ const NewItems = () => {
           >
             {products.map((item) => (
               <motion.div
-                key={item.id}
+                key={item._id}
                 className="min-w-[80%] sm:min-w-[calc(40%-12px)] lg:min-w-[calc(22%-18px)] group"
               >
                 <div
-                  onClick={() => navigate(`/product/${item.id}`)}
+                  onClick={() => navigate(`/products/${item._id}`)}
                   style={{ backgroundColor: colors.studioWhite }}
                   className="relative aspect-[3/4] overflow-hidden rounded-2xl border border-black/5 shadow-sm group-hover:shadow-md transition-all cursor-pointer"
                 >
@@ -168,9 +168,23 @@ const NewItems = () => {
 
                   <div className="absolute bottom-0 left-0 w-full p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
                     <button
-                      onClick={(e) => {
+                      onClick={async(e)=>{
                         e.stopPropagation();
-                        addToCart(item);
+                        try{
+                          console.log("Adding to cart:", item._id);
+                          console.log("Product details:", item);
+                          const response=await axios.post(
+                            "https://sattiyash-backend.onrender.com/addtocart",
+                            {
+                              productId: item._id
+                            },{
+                              withCredentials: true
+                            }
+                          )
+
+                        }catch(error){
+                          console.log(error);
+                        }
                       }}
                       style={{ backgroundColor: colors.midnight }}
                       className="w-full text-white py-3 rounded-full flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90 active:scale-95 shadow-lg transition-all"
@@ -182,7 +196,7 @@ const NewItems = () => {
 
                 <div
                   className="mt-4 px-1 flex justify-between items-start cursor-pointer"
-                  onClick={() => navigate(`/product/${item.id}`)}
+                  onClick={() => navigate(`/products/${item._id}`)}
                 >
                   <h3
                     style={{ color: colors.midnight }}

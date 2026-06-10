@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import axios from "axios";
+import { useUser } from "@clerk/clerk-react";
 import {
   ShoppingBag,
   Heart,
@@ -8,57 +10,57 @@ import {
 } from "lucide-react";
 import { useCart } from "../context/CartContext";
 
-const allProducts = [
-  {
-    id: 1,
-    name: "Street Oversized Tee",
-    category: "Oversized T-Shirts",
-    price: "₹1,499",
-    img: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?q=80&w=600",
-  },
-  {
-    id: 2,
-    name: "Premium Cotton Shirt",
-    category: "Premium Cotton Shirts",
-    price: "₹2,199",
-    img: "https://images.unsplash.com/photo-1598033129183-c4f50c717658?q=80&w=600",
-  },
-  {
-    id: 3,
-    name: "Baggy Blue Jeans",
-    category: "Baggy Jeans",
-    price: "₹3,499",
-    img: "https://images.unsplash.com/photo-1542272604-787c3835535d?q=80&w=600",
-  },
-  {
-    id: 4,
-    name: "Urban Cargo Pants",
-    category: "Cargo Pants",
-    price: "₹2,899",
-    img: "https://images.unsplash.com/photo-1542272604-787c3835535d?q=80&w=1000",
-  },
-  {
-    id: 5,
-    name: "Old Money Polo",
-    category: "Old Money Aesthetic",
-    price: "₹1,899",
-    img: "https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?q=80&w=600",
-  },
-  {
-    id: 7,
-    name: "Graphic Street Tee",
-    category: "Graphic Tees",
-    price: "₹1,299",
-    img: "https://images.unsplash.com/photo-1554568212-3c16f5c75050?q=80&w=600",
-  },
-  {
-    id: 8,
-    name: "Summer Linen Chinos",
-    category: "Tailored Chinos",
-    price: "₹2,499",
-    img: "https://images.unsplash.com/photo-1473966968600-fa801b869a1a?q=80&w=600",
-  },
-];
+// const allProducts = [
+//   {
+//     id: 1,
+//     name: "Street Oversized Tee",
+//     category: "Oversized T-Shirts",
+//     price: "₹1,499",
+//     img: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?q=80&w=600",
+//   },
+//   {
+//     id: 2,
+//     name: "Premium Cotton Shirt",
+//     category: "Premium Cotton Shirts",
+//     price: "₹2,199",
+//     img: "https://images.unsplash.com/photo-1598033129183-c4f50c717658?q=80&w=600",
+//   },
+//   {
+//     id: 3,
+//     name: "Baggy Blue Jeans",
+//     category: "Baggy Jeans",
+//     price: "₹3,499",
+//     img: "https://images.unsplash.com/photo-1542272604-787c3835535d?q=80&w=600",
+//   },
+//   {
+//     id: 4,
+//     name: "Urban Cargo Pants",
+//     category: "Cargo Pants",
+//     price: "₹2,899",
+//     img: "https://images.unsplash.com/photo-1542272604-787c3835535d?q=80&w=1000",
+//   },
+//   {
+//     id: 5,
+//     name: "Old Money Polo",
+//     category: "Old Money Aesthetic",
+//     price: "₹1,899",
+//     img: "https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?q=80&w=600",
+//   },
+//   {
+//     id: 7,
+//     name: "Graphic Street Tee",
+//     category: "Graphic Tees",
+//     price: "₹1,299",
+//     img: "https://images.unsplash.com/photo-1554568212-3c16f5c75050?q=80&w=600",
+//   },
+//   {
+//     id: 8,
+//     name: "Summer Linen Chinos",
+//     category: "Tailored Chinos",
+//     price: "₹2,499",
+//     img: "https://images.unsplash.com/photo-1473966968600-fa801b869a1a?q=80&w=600",
+//   },
+// ];
 
 const categories = [
   "All Collection",
@@ -76,11 +78,66 @@ const categories = [
 const ProductPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [products,setProducts]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const { isSignedIn } = useUser();
+  useEffect(() => {
+  const fetchProducts = async () => {
+    try {
+      const response = await axios.get(
+        "https://sattiyash-backend.onrender.com/getProduct"
+      );
+      console.log(response.data.data)
+      setProducts(response.data.data);
+      
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  fetchProducts();
+}, []);
   const [selectedCategory, setSelectedCategory] =
     useState("All Collection");
 
   const { addToCart, addToWishlist } = useCart();
+   const [wishlistItems, setWishlistItems] = useState([]);
+      const [wishlist, setWishlist] = useState([]);
+      
+const fetchWishlist = async () => {
+  try {
+    const res = await axios.get(
+      "https://sattiyash-backend.onrender.com/getallwishlist",
+      {
+        withCredentials: true,
+      }
+    );
+
+    console.log("Backend Response:", res.data);
+
+    setWishlist(res.data.item || []);
+  } catch (error) {
+    console.log(
+      "Wishlist Fetch Error:",
+      error.response?.data
+    );
+  }
+};
+useEffect(() => {
+
+if (!isSignedIn) {
+
+setWishlist([]);
+
+return;
+
+}
+
+fetchWishlist();
+
+}, [isSignedIn]);
 
   const colors = {
     studioWhite: "#FDFDFD",
@@ -111,12 +168,75 @@ const ProductPage = () => {
   };
 
   const filteredProducts =
-    selectedCategory === "All Collection"
-      ? allProducts
-      : allProducts.filter(
-          (p) => p.category === selectedCategory
-        );
+  selectedCategory === "All Collection"
+    ? products
+    : products.filter(
+        (p) => p.Category === selectedCategory
+      );
+  if (loading) {
+  return (
+    <div className="h-screen flex items-center justify-center">
+      Loading Products...
+    </div>
+  );
+} 
+const handleWishlist = async (e, productId) => {
 
+  e.stopPropagation();
+
+  if (!isSignedIn) {
+    alert("Please login to add items to wishlist");
+    return;
+  }
+
+  try {
+
+    const isAlreadyWishlisted =
+      wishlist?.some(
+        (item) =>
+          item.productId?._id === productId
+      );
+
+    if (isAlreadyWishlisted) {
+
+      await axios.delete(
+        `https://sattiyash-backend.onrender.com/deletwishlistitem/${productId}`,
+        {
+          withCredentials: true,
+        }
+      );
+
+    } else {
+
+      await axios.post(
+        "https://sattiyash-backend.onrender.com/addtowishlist",
+        {
+          productId,
+        },
+        {
+          withCredentials: true,
+        }
+      );
+
+    }
+
+    fetchWishlist();
+
+  } catch (error) {
+
+    console.log(error);
+
+    if (
+      error.response?.status === 401
+    ) {
+      alert(
+        "Please login first"
+      );
+    }
+
+  }
+
+};
   return (
     <div className="min-h-screen lg:ml-[220px] bg-[#FDFDFD]">
       {/* HEADER */}
@@ -216,10 +336,14 @@ const ProductPage = () => {
           className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-5 md:gap-7"
         >
           <AnimatePresence mode="popLayout">
-            {filteredProducts.map((product, index) => (
+            {filteredProducts.map((product, index) => {
+                const isInWishlist = wishlist.some(
+                  (item) => item.productId?._id === product._id
+                );
+              return(  
               <motion.div
                 layout
-                key={product.id}
+                key={product._id}
                 initial={{
                   opacity: 0,
                   y: 30,
@@ -244,9 +368,12 @@ const ProductPage = () => {
                   y: -10,
                 }}
                 className="group cursor-pointer will-change-transform relative"
-                onClick={() =>
-                  navigate(`/product/${product.id}`)
-                }
+               onClick={() => {
+                  console.log(product);
+                  console.log("ID:", product._id);
+
+                  navigate(`/products/${product._id}`);
+                }}
               >
                 <div
                   style={{
@@ -259,7 +386,7 @@ const ProductPage = () => {
                   {/* IMAGE */}
                   <div className="absolute inset-0 overflow-hidden">
                     <motion.img
-                      src={product.img}
+                      src={product.image}
                       alt={product.name}
                       whileHover={{
                         scale: 1.1,
@@ -282,9 +409,54 @@ const ProductPage = () => {
                       whileTap={{
                         scale: 0.9,
                       }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        addToCart(product);
+                      onClick={async (e) => {
+
+                      e.stopPropagation();
+
+                      if (!isSignedIn) {
+
+                      alert(
+                      "Please login to add items to cart"
+                      );
+
+                      return;
+
+                      }
+
+                      try {
+
+                      await axios.post(
+                      "https://sattiyash-backend.onrender.com/addtocart",
+                      {
+                      productId:
+                      product._id
+                      },
+                      {
+                      withCredentials:true
+                      }
+                      );
+
+                      alert(
+                      "Added to cart"
+                      );
+
+                      }
+                      catch(error){
+
+                      console.log(error);
+
+                      if(
+                      error.response?.status===401
+                      ){
+
+                      alert(
+                      "Please login first"
+                      );
+
+                      }
+
+                      }
+
                       }}
                       style={{
                         backgroundColor:
@@ -304,17 +476,21 @@ const ProductPage = () => {
                       whileTap={{
                         scale: 0.9,
                       }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        addToWishlist(product);
-                      }}
+                      onClick={(e) => handleWishlist(e, product._id)}
                       style={{
                         backgroundColor: "#ffffff",
                         color: colors.midnight,
                       }}
                       className="p-3 rounded-full shadow-2xl border border-black/5 transition-all"
                     >
-                      <Heart size={16} />
+                       <Heart
+                          size={14}
+                          className={`transition-all duration-300 ${
+                            isInWishlist
+                              ? "fill-red-500 text-red-500"
+                              : "text-black"
+                          }`}
+                        />
                     </motion.button>
                   </div>
 
@@ -325,7 +501,7 @@ const ProductPage = () => {
                       color: colors.midnight,
                     }}
                   >
-                    {product.category.split(" ")[0]}
+                    {product.Category?.split(" ")[0]}
                   </span>
 
                   {/* FLOATING LIGHT */}
@@ -379,7 +555,7 @@ const ProductPage = () => {
                   </div>
                 </div>
               </motion.div>
-            ))}
+)})}
           </AnimatePresence>
         </motion.div>
 

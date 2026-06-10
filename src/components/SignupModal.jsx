@@ -1,5 +1,8 @@
 import { motion } from "framer-motion";
 import React, { useState } from "react";
+import axios from "axios";
+import {useSignUp,useClerk,useUser} from "@clerk/clerk-react";
+
 import {
   X,
   Mail,
@@ -14,63 +17,231 @@ const SignupModal = ({
   onClose,
   onSwitch,
 }) => {
-  const [formData, setFormData] =
-    useState({
+ 
+  const {signOut}=useClerk();
+  const [formData, setFormData] = useState({
       name: "",
       email: "",
       phone: "",
-      password: "",
-    });
-
+      refferalCode: "",
+});
+  const [showOtp, setShowOtp] = useState(false);
+  const [otp, setOtp] = useState("");
+const [loading,setLoading]=useState(false);
+  const { signUp, isLoaded, setActive } = useSignUp();
   const colors = {
     studioWhite: "#FDFDFD",
     midnight: "#111111",
     slate: "#666666",
     divider: "#EEEEEE",
   };
+  const resetSignupState = async () => {
+  setShowOtp(false);
+  setOtp("");
+  setLoading(false);
 
-  const handleSignup = (e) => {
-    e.preventDefault();
+  setFormData({
+    name: "",
+    email: "",
+    phone: "",
+    refferalCode: "",
+    countryCode: "+91",
+  });
 
-    const phoneRegex =
-      /^[6-9]\d{9}$/;
+  
+};
+const handleSignup = async (e) => {
+  e.preventDefault();
 
-    if (
-      !formData.name ||
-      !formData.email ||
-      !formData.phone ||
-      !formData.password
-    ) {
-      alert(
-        "Please fill in all fields"
-      );
-      return;
-    }
+  if (!isLoaded) return;
 
-    if (
-      !phoneRegex.test(
-        formData.phone
-      )
-    ) {
-      alert(
-        "Please enter a valid 10-digit mobile number"
-      );
-      return;
-    }
+  try {
+    setShowOtp(false);
+    setOtp("");
 
-    console.log(
-      "Account Creation Data:",
-      formData
-    );
+    const result = await signUp.create({
+      emailAddress: formData.email,
+      firstName: formData.name,
+      username: formData.email.split("@")[0],
+    });
+
+    await signUp.prepareEmailAddressVerification({
+      strategy: "email_code",
+    });
+
+    setShowOtp(true);
+  } catch (err) {
+    console.log(err);
+  }
+};
+const resendOtp = async () => {
+  try {
+
+    setLoading(true);
+
+    await signUp.prepareEmailAddressVerification({
+      strategy: "email_code",
+    });
+
+    setOtp("");
 
     alert(
-      "Signup UI Logic Triggered"
+      "New OTP sent successfully. Enter the latest OTP."
     );
 
-    onClose();
-  };
+  } catch (err) {
 
-  if (!isOpen) return null;
+    alert(
+      err.errors?.[0]?.message ||
+      "Failed to resend OTP"
+    );
+
+  } finally {
+    setLoading(false);
+  }
+};
+const verifyOtp = async () => {
+  try {
+
+    setLoading(true);
+
+    const result =
+      await signUp.attemptEmailAddressVerification({
+        code: otp,
+      });
+
+    console.log("RESULT:", result);
+
+    if (result.status === "complete") {
+
+      const response = await axios.post(
+        "https://sattiyash-backend.onrender.com/register",
+        {
+          clerkId: result.createdUserId,
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          refferalCode: formData.refferalCode,
+        },
+        {
+          withCredentials: true,
+        }
+      );
+
+
+
+      alert("Signup Successful");
+      
+      await setActive({
+        session: result.createdSessionId,
+      });
+      await new Promise((res) => setTimeout(res, 200));
+      window.location.reload();
+      onClose();
+
+// Reset modal state
+    
+  }
+
+  } catch (err) {
+    
+    console.log(err);
+
+    const errorCode =
+      err.errors?.[0]?.code;
+
+    if (
+      errorCode ===
+      "form_code_incorrect"
+    ) {
+
+      alert(
+        "Your OTP is wrong. Please click Resend OTP."
+      );
+
+      setOtp("");
+
+      return;
+    }
+
+    if (
+      errorCode ===
+      "verification_expired"
+    ) {
+
+      alert(
+        "OTP expired. Please click Resend OTP."
+      );
+
+      setOtp("");
+
+      return;
+    }
+
+    alert(
+      err.errors?.[0]?.message ||
+      "Verification failed"
+    );
+    setOtp("");
+
+      try {
+        await signUp?.create({});
+      } catch {}
+
+      setShowOtp(false);
+
+      return;
+
+  } finally {
+
+    // ALWAYS ENABLE BUTTONS AGAIN
+    setLoading(false);
+
+  }
+};
+
+if (!isOpen) return null;
+if (showOtp) {
+  return (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center">
+      <div className="bg-white p-8 rounded-3xl w-[400px]">
+
+        <h2 className="text-xl font-bold mb-6">
+          Verify Email
+        </h2>
+
+        <input
+          type="text"
+          placeholder="Enter OTP"
+          value={otp}
+          onChange={(e) => setOtp(e.target.value)}
+          className="w-full border p-3 rounded-xl mb-4"
+        />
+
+        <button
+          disabled={loading}
+          onClick={verifyOtp}
+          className="w-full bg-black text-white py-3 rounded-xl disabled:opacity-50"
+          >
+          {
+          loading
+          ? "VERIFYING..."
+          : "VERIFY OTP"
+          }
+          </button>
+
+          <button
+          disabled={loading}
+          onClick={resendOtp}
+          className="w-full mt-3 border py-3 rounded-xl disabled:opacity-50"
+          >
+          Resend OTP
+          </button>
+
+      </div>
+    </div>
+  );
+}
 
   return (
     <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
@@ -80,7 +251,10 @@ const SignupModal = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        onClick={onClose}
+        onClick={async () => {
+          await resetSignupState();
+          onClose();
+        }}
         style={{
           backgroundColor:
             "rgba(0, 0, 0, 0.4)",
@@ -118,7 +292,10 @@ const SignupModal = ({
 
         {/* CLOSE BUTTON */}
         <button
-          onClick={onClose}
+           onClick={async () => {
+                await resetSignupState();
+                onClose();
+              }}
           style={{
             color: colors.midnight,
           }}
@@ -147,7 +324,7 @@ const SignupModal = ({
             Create Studio Account
           </p>
         </div>
-
+        
         {/* FORM */}
         <form
           onSubmit={handleSignup}
@@ -324,25 +501,22 @@ const SignupModal = ({
             />
 
             <input
-              required
-              type="password"
-              placeholder="PASSWORD"
-              value={formData.password}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  password:
-                    e.target.value,
-                })
-              }
-              style={{
-                color:
-                  colors.midnight,
-              }}
-              className="bg-transparent flex-1 outline-none text-[10px] font-bold tracking-widest uppercase placeholder:text-gray-300"
-            />
+        type="text"
+        placeholder="Referral Code (Optional)"
+        value={formData.refferalCode}
+        onChange={(e) =>
+          setFormData({
+            ...formData,
+            refferalCode: e.target.value,
+          })
+        }
+        style={{
+          color: colors.midnight,
+        }}
+        className="bg-transparent flex-1 outline-none text-[10px] font-bold tracking-widest uppercase placeholder:text-gray-300"
+      />
           </div>
-
+           <div id="clerk-captcha"></div>
           {/* SUBMIT BUTTON */}
           <button
             type="submit"

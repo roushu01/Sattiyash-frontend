@@ -1,5 +1,8 @@
-import React from "react";
+
+import React, { useState, useRef, forwardRef, useEffect } from "react";
 import { useCart } from "../context/CartContext";
+import axios from "axios";
+import { useUser } from "@clerk/clerk-react";
 import {
   ShoppingBag,
   X,
@@ -13,21 +16,72 @@ import {
 import { useNavigate } from "react-router-dom";
 
 const WishlistPage = () => {
-  const {
-    wishlist,
-    removeFromWishlist,
-    addToCart,
-  } = useCart();
+  const { addToCart } = useCart();
 
+const [wishlist, setWishlist] = useState([]);
+const { isSignedIn } = useUser();
   const navigate = useNavigate();
-
+ 
   const colors = {
     studioWhite: "#FDFDFD",
     midnight: "#111111",
     slate: "#666666",
     divider: "#EEEEEE",
   };
+useEffect(() => {
 
+  if (!isSignedIn) {
+    setWishlist([]);
+    return;
+  }
+
+  fetchWishlist();
+
+}, [isSignedIn]);
+
+const fetchWishlist = async () => {
+  try {
+
+    const res = await axios.get(
+      "https://sattiyash-backend.onrender.com/getallwishlist",
+      {
+        withCredentials: true,
+      }
+    );
+
+    console.log("Wishlist:", res.data);
+
+    setWishlist(
+      Array.isArray(res.data.item)
+        ? res.data.item
+        : []
+    );
+
+  } catch (error) {
+
+    console.log(error);
+
+    // IMPORTANT
+    setWishlist([]);
+
+  }
+};
+const removeFromWishlist = async (productId) => {
+  try {
+    await axios.delete(
+      `https://sattiyash-backend.onrender.com/deletwishlistitem/${productId}`,
+      {
+        withCredentials: true,
+      }
+    );
+
+    // Refresh wishlist
+    fetchWishlist();
+
+  } catch (error) {
+    console.log(error);
+  }
+};
   return (
     <div className="lg:ml-[220px] pt-24 px-6 md:px-10 min-h-screen bg-[#FDFDFD] font-jakarta relative overflow-hidden">
 
@@ -151,8 +205,7 @@ const WishlistPage = () => {
             whileTap={{
               scale: 0.97,
             }}
-            onClick={() =>
-              navigate("/products")
+            onClick={() =>navigate(`/products/${item.productId?._id}`)
             }
             style={{
               backgroundColor:
@@ -200,7 +253,7 @@ const WishlistPage = () => {
                 }}
                 className="relative group cursor-pointer"
                 onClick={() =>
-                  navigate(`/product/${item.id}`)
+                  navigate(`/products/${item.productId?._id}`)
                 }
               >
 
@@ -218,12 +271,8 @@ const WishlistPage = () => {
                   {/* IMAGE */}
                   <div className="absolute inset-0 overflow-hidden">
                     <img
-                      src={
-                        item.img ||
-                        item.image ||
-                        "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=100"
-                      }
-                      alt={item.name}
+                      src={item.productId.image}
+                      alt={item.productId?.name}
                       className="w-full h-full object-cover scale-[1.02] grayscale-[10%] transition-all duration-700 group-hover:scale-110 group-hover:grayscale-0"
                     />
                   </div>
@@ -243,12 +292,10 @@ const WishlistPage = () => {
                     whileTap={{
                       scale: 0.9,
                     }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeFromWishlist(
-                        item.id
-                      );
-                    }}
+                      onClick={(e) => {
+                          e.stopPropagation();
+                          removeFromWishlist(item.productId?._id);
+                        }}
                     style={{
                       color: colors.midnight,
                     }}
@@ -300,7 +347,7 @@ const WishlistPage = () => {
                     }}
                     className="text-[11px] font-black uppercase tracking-tight truncate transition-all duration-300 group-hover:tracking-wide group-hover:opacity-60"
                   >
-                    {item.name}
+                    {item.productId?.name}
                   </h3>
 
                   <div className="flex items-center justify-between mt-1">
@@ -310,7 +357,7 @@ const WishlistPage = () => {
                       }}
                       className="font-black text-sm tracking-tight italic"
                     >
-                      {item.price}
+                      {item.productId?.Discounted_price}
                     </span>
 
                     <span

@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import axios from "axios";
+
 import {
   Wallet,
   Users,
@@ -16,14 +18,32 @@ import { useNavigate } from "react-router-dom";
 const ReferPage = () => {
   const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
-
+  const [referralData,setReferralData]=useState(null);
   const colors = {
     studioWhite: "#FDFDFD",
     midnight: "#111111",
     slate: "#666666",
     divider: "#EEEEEE",
   };
+ useEffect(()=>{
+  fetchReferralData()
+ },[]);
+ const fetchReferralData = async () => {
+  try {
+   
+      const ans = await axios.get(
+        "https://sattiyash-backend.onrender.com/referral-code",
+        {
+          withCredentials: true,
+        }
+      );
 
+      setReferralData(ans.data);
+    
+  } catch (error) {
+    console.log(error);
+  }
+};
   const transactions = [
     {
       id: 1,
@@ -52,7 +72,7 @@ const ReferPage = () => {
   ];
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText("SATTIYAS500");
+    navigator.clipboard.writeText(referralData?.referralCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -123,7 +143,7 @@ const ReferPage = () => {
             </p>
             <div className="flex items-center justify-between">
               <h3 className="text-3xl md:text-4xl font-black tracking-tighter">
-                4,500{" "}
+                {referralData?.walletBalance||0}{" "}
                 <span className="text-[10px] opacity-50 uppercase">pts</span>
               </h3>
               <ArrowUpRight size={18} className="opacity-40" />
@@ -148,7 +168,7 @@ const ReferPage = () => {
                 Total Network
               </p>
               <h3 className="text-3xl md:text-4xl font-black tracking-tighter">
-                12
+                {referralData?.totalReferrals ||0}
               </h3>
             </div>
           </div>
@@ -168,7 +188,8 @@ const ReferPage = () => {
               className="w-full flex items-center justify-between bg-white px-5 py-4 rounded-xl border shadow-sm active:scale-95 transition-all group"
             >
               <span className="font-black tracking-[0.1em] text-lg font-mono">
-                SATTIYAS500
+                {referralData?.referralCode}
+              
               </span>
               <div className="p-2 bg-gray-50 rounded-lg group-hover:bg-black group-hover:text-white transition-colors">
                 {copied ? (

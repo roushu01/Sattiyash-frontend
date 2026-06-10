@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState,useEffect } from "react";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import {
   Truck,
   CreditCard,
@@ -9,7 +9,7 @@ import {
   ArrowUpRight,
   ChevronRight,
 } from "lucide-react";
-
+import axios from "axios";
 const Features = [
   { icon: Truck, title: "FREE SHIPPING", desc: "On all clothing", num: "01" },
   {
@@ -51,11 +51,11 @@ const Categories = [
   },
   {
     name: "SEASONAL",
-    sub: "TRENDING",
+    sub: "Hoodies & Jackets",
     img: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=800", // Hoodie/Trending Image
     tag: "New Arrivals",
     count: "80+ styles",
-    query: "trending",
+    query: "Hoodies & Jackets",
   },
 ];
 
@@ -69,11 +69,35 @@ const CategorySection = () => {
     slate: "#666666",       
     divider: "#EEEEEE",     
   };
+ const handleCategoryClick = (categoryQuery) => {
+    navigate(
+ `/products/category/${encodeURIComponent(categoryQuery)}`
+)
+  };
+  const { category } = useParams();
+  const [product,setProducts]=useState([]);
 
-  const handleCategoryClick = (categoryQuery) => {
-    navigate(`/products?category=${categoryQuery}`);
+  useEffect(() => {
+  if (!category) return;
+
+  const fetchProducts = async () => {
+    try {
+      console.log("Fetching:", category);
+
+      const response = await axios.get(
+        `https://sattiyash-backend.onrender.com/getproductbycategory/${encodeURIComponent(category)}`
+      );
+
+      setProducts(response.data.products);
+
+    } catch (error) {
+      console.log(error);
+    }
   };
 
+  fetchProducts();
+
+}, [category]);
   return (
     <section
       style={{ backgroundColor: "#ffffff" }}

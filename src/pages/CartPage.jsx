@@ -1,6 +1,9 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { useCart } from "../context/CartContext";
+import axios from "axios";
+import { useEffect, useState } from "react";
+
 import {
   Trash2,
   ShoppingBag,
@@ -14,17 +17,64 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
-const CartPage = () => {
-const {
-  cart,
-  wishlist,
-  removeFromCart,
-  addToCart,
-  addToWishlist,
-  removeFromWishlist,
-} = useCart();
 
-  const navigate = useNavigate();
+const CartPage = () => {
+
+   const navigate = useNavigate();
+    const {
+       
+        wishlist,
+        
+        addToCart,
+        addToWishlist,
+        removeFromWishlist,
+      } = useCart();
+  const [cartItems, setCartItems] = useState([]);
+  const [quantities, setQuantities] = useState({});
+  const [sizes, setSizes] = useState({});
+  const [suggestedProducts, setSuggestedProducts] = useState([]);
+  
+
+  useEffect(() => {
+  const fetchCart = async () => {
+    try {
+      const response = await axios.get(
+        "https://sattiyash-backend.onrender.com/getcartitems",
+        { withCredentials: true }
+      );
+
+      setCartItems(response.data.cartItems || []);
+    } catch (error) {
+      console.log("Cart fetch failed:", error);
+
+      // IMPORTANT: clear cart on auth failure
+      setCartItems([]);
+    }
+  };
+
+  fetchCart();
+}, []);
+
+  const removeFromCart = async (productId) => {
+  try {
+    console.log("Remove cart envoked")
+    await axios.delete(
+      `https://sattiyash-backend.onrender.com/deletefromcart/${productId}`,
+      {
+        withCredentials: true,
+      }
+    );
+
+    setCartItems((prev) =>
+      prev.filter(
+        (item) =>
+          item.productId._id !== productId
+      )
+    );
+  } catch (error) {
+    console.log(error);
+  }
+};
 
   const colors = {
     studioWhite: "#FDFDFD",
@@ -34,40 +84,42 @@ const {
   };
 
   // ================= QUANTITY STATE =================
-  const [quantities, setQuantities] =
-    React.useState({});
+React.useEffect(() => {
+  const initialQuantities = {};
 
-  React.useEffect(() => {
-    const initialQuantities = {};
+  cartItems.forEach((item) => {
+    const id = item.productId?._id;
 
-    cart.forEach((item) => {
-      initialQuantities[item.id] =
-        (initialQuantities[item.id] || 0) + 1;
-    });
+    initialQuantities[id] =
+      item.quantity || 1;
+  });
 
-    setQuantities(initialQuantities);
-  }, [cart]);
+  setQuantities(initialQuantities);
+}, [cartItems]);
 
   // ================= SIZE STATE =================
-  const [sizes, setSizes] =
-    React.useState({});
+
 
   React.useEffect(() => {
     const initialSizes = {};
 
-    cart.forEach((item) => {
-      initialSizes[item.id] = "M";
+    cartItems.forEach((item) => {
+      const id = item.productId?._id || item._id;
+      initialSizes[id] = "M";
     });
 
     setSizes(initialSizes);
-  }, [cart]);
+  }, [cartItems]);
 
   // ================= UNIQUE PRODUCTS =================
   const uniqueCart = [
-    ...new Map(
-      cart.map((item) => [item.id, item])
-    ).values(),
-  ];
+  ...new Map(
+    cartItems.map((item) => [
+      item.productId?._id || item._id,
+      item,
+    ])
+  ).values(),
+];
 
   // ================= TOTAL ITEMS =================
   const totalItems = Object.values(
@@ -78,67 +130,21 @@ const {
   );
 
   // ================= SUBTOTAL =================
-  const subtotal = uniqueCart.reduce(
-    (total, item) => {
-      const cleanPrice = Number(
-        String(item.price).replace(
-          /[^\d]/g,
-          ""
-        )
-      );
+const subtotal = uniqueCart.reduce(
+  (total, item) => {
+    const cleanPrice =
+      item.productId?.Discounted_price || 0;
 
-      const quantity =
-        quantities[item.id] || 1;
+    const quantity =
+      quantities[item.productId?._id] || 1;
 
-      return (
-        total +
-        (isNaN(cleanPrice)
-          ? 0
-          : cleanPrice) *
-          quantity
-      );
-    },
-    0
-  );
+    return total + cleanPrice * quantity;
+  },
+  0
+);
 
   // ================= RECOMMENDED =================
-  const suggestedProducts = [
-    {
-      id: 101,
-      name: "Baggy Blue Jeans",
-      category: "Denim",
-      price: "₹3,499",
-      image:
-        "https://images.unsplash.com/photo-1542272604-787c3835535d?w=800&q=100",
-    },
-
-    {
-      id: 102,
-      name: "Urban Cargo Pants",
-      category: "Cargo",
-      price: "₹2,899",
-      image:
-        "https://images.unsplash.com/photo-1506629905607-d9c297d3d0d2?w=800&q=100",
-    },
-
-    {
-      id: 103,
-      name: "Essential Noir Hoodie",
-      category: "Oversized",
-      price: "₹2,999",
-      image:
-        "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&q=100",
-    },
-
-    {
-      id: 104,
-      name: "Premium Cotton Shirt",
-      category: "Luxury",
-      price: "₹2,199",
-      image:
-        "https://images.unsplash.com/photo-1598033129183-c4f50c717658?w=800&q=100",
-    },
-  ];
+  
 
   return (
     <div className="lg:ml-[220px] pt-24 px-6 md:px-10 min-h-screen bg-[#FDFDFD] font-jakarta relative overflow-hidden">
@@ -236,12 +242,11 @@ const {
                     <div className="w-36 h-44 rounded-[2rem] overflow-hidden shrink-0 bg-gray-100">
 
                       <img
-                        src={
-                          item.img ||
-                          item.image ||
-                          "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=100"
-                        }
-                        alt={item.name}
+                         src={
+                            item.productId?.image ||
+                            "fallback"
+                          }
+                          alt={item.productId?.name}
                         className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
                       />
                     </div>
@@ -253,11 +258,11 @@ const {
 
                         <div>
                           <p className="text-[8px] uppercase tracking-[0.3em] opacity-40 mb-2">
-                            {item.category || "Studio"}
+                            {item.productId?.Category || "Studio"}
                           </p>
 
                           <h2 className="text-[18px] md:text-[22px] font-black uppercase leading-tight">
-                            {item.name}
+                            {item.productId?.name}
                           </h2>
 
                           <p className="text-[11px] opacity-50 mt-4 leading-relaxed max-w-[700px]">
@@ -270,9 +275,14 @@ const {
 
                         {/* REMOVE */}
                         <button
-                          onClick={() =>
-                            removeFromCart(item.id)
-                          }
+                          onClick={async() =>{
+                            try{
+                              await removeFromCart(item.productId._id);
+                              setCartItems((prev)=>prev.filter((cartItem)=>cartItem.productId._id !== item.productId._id));
+                            }catch(error){
+                              console.log(error);
+                            }
+                          }}
                           className="w-14 h-14 rounded-full border border-black/10 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-all duration-300"
                         >
                           <Trash2 size={18} />
@@ -284,7 +294,7 @@ const {
 
                         <div>
                           <p className="text-4xl font-black italic tracking-tighter">
-                            {item.price}
+                            ₹{item.productId?.Discounted_price}
                           </p>
 
                           <div className="flex items-center gap-1 text-[10px] font-black opacity-50 mt-2">
@@ -302,42 +312,7 @@ const {
                       </div>
 
                       {/* SIZE */}
-                      <div className="mt-8">
-
-                        <p className="text-[8px] uppercase tracking-[0.25em] opacity-40 mb-4">
-                          Select Size
-                        </p>
-
-                        <div className="flex gap-3">
-
-                          {[
-                            "S",
-                            "M",
-                            "L",
-                            "XL",
-                          ].map((size) => (
-                            <button
-                              key={size}
-                              onClick={() =>
-                                setSizes({
-                                  ...sizes,
-                                  [item.id]:
-                                    size,
-                                })
-                              }
-                              className={`w-14 h-14 rounded-full border text-[11px] font-black transition-all duration-300 ${
-                                sizes[item.id] ===
-                                size
-                                  ? "bg-black text-white border-black"
-                                  : "bg-white border-black/10 hover:border-black"
-                              }`}
-                            >
-                              {size}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
+                      
                       {/* QUANTITY */}
                       <div className="flex items-center justify-between mt-8">
 
@@ -347,10 +322,10 @@ const {
                             onClick={() =>
                               setQuantities({
                                 ...quantities,
-                                [item.id]: Math.max(
+                                [item.productId._id]: Math.max(
                                   1,
                                   (quantities[
-                                    item.id
+                                    item.productId._id
                                   ] || 1) - 1
                                 ),
                               })
@@ -362,7 +337,7 @@ const {
                           <span className="text-[14px] font-black min-w-[20px] text-center">
                             {
                               quantities[
-                                item.id
+                                item.productId._id
                               ] || 1
                             }
                           </span>
@@ -371,9 +346,9 @@ const {
                             onClick={() =>
                               setQuantities({
                                 ...quantities,
-                                [item.id]:
+                                [item.productId._id]:
                                   (quantities[
-                                    item.id
+                                    item.productId._id
                                   ] || 1) + 1,
                               })
                             }
@@ -385,7 +360,7 @@ const {
                         <p className="text-[12px] uppercase tracking-[0.35em] opacity-40">
                           Size:{" "}
                           {
-                            sizes[item.id]
+                            sizes[item.productId._id]
                           }
                         </p>
                       </div>
@@ -411,7 +386,7 @@ const {
   {[...suggestedProducts, ...suggestedProducts].map(
     (item, idx) => (
       <motion.div
-        key={`${item.id}-${idx}`}
+        key={`${item.productId._id}-${idx}`}
         whileHover={{
           y: -8,
         }}
@@ -424,20 +399,16 @@ const {
           <div className="relative h-[250px] overflow-hidden">
 
             <img
-              src={
-                item.image ||
-                item.img
-              }
-              alt={item.name}
-              className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
-            />
+  src={item.productId?.image}
+  alt={item.productId?.name}
+/>
 
             {/* OVERLAY */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all duration-700" />
 
             {/* CATEGORY */}
             <div className="absolute top-4 left-4 px-4 py-2 rounded-full bg-white/95 backdrop-blur-xl text-[7px] font-black uppercase tracking-[0.22em] shadow-lg">
-              {item.category}
+              {item.productId?.Category}
             </div>
 
          {/* WISHLIST */}
@@ -456,11 +427,11 @@ const {
     const alreadyWishlisted =
   wishlist?.some(
     (wish) =>
-      wish.id === item.id
+      wish.id === item.productId._id
   );
 
 if (alreadyWishlisted) {
-  removeFromWishlist(item.id);
+  removeFromWishlist(item.productId._id);
 } else {
   addToWishlist({
     ...item,
@@ -474,7 +445,7 @@ if (alreadyWishlisted) {
   ${
     wishlist?.some(
       (wish) =>
-        wish.id === item.id
+        wish.id === item.productId._id
     )
       ? "bg-black text-white opacity-100"
       : "bg-white/95 text-black opacity-0 group-hover:opacity-100 hover:bg-black hover:text-white"
@@ -485,7 +456,7 @@ if (alreadyWishlisted) {
     fill={
       wishlist?.some(
         (wish) =>
-          wish.id === item.id
+          wish.id === item.productId._id
       )
         ? "currentColor"
         : "none"
@@ -541,7 +512,7 @@ if (alreadyWishlisted) {
 
               <div>
                 <p className="text-xl font-black italic tracking-tight">
-                  {item.price}
+                  {item.Discounted_price}
                 </p>
 
                 <p className="text-[7px] uppercase tracking-[0.2em] opacity-40 mt-1">
@@ -656,9 +627,11 @@ if (alreadyWishlisted) {
 
                 <button
                   onClick={() =>
-                    navigate(
-                      "/checkout"
-                    )
+                    navigate("/checkout", {
+                      state: {
+                        cartItems: cartItems,
+                      },
+                    })
                   }
                   className="group relative overflow-hidden w-full py-6 bg-black text-white text-[10px] font-black uppercase tracking-[0.3em] rounded-full transition-all duration-500 shadow-[0_20px_40px_rgba(0,0,0,0.18)] hover:shadow-[0_30px_60px_rgba(0,0,0,0.28)] active:scale-[0.98] flex items-center justify-center gap-3"
                 >

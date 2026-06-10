@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useState, useRef, forwardRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Mail, MapPin, Send, Phone } from "lucide-react";
-
+import axios from "axios";
 const ContactPage = () => {
   
   const colors = {
@@ -10,7 +10,40 @@ const ContactPage = () => {
     slate: "#666666",      
     divider: "#EEEEEE",   
   };
+  const [formData,setFormData]=useState({
+    name:"",
+    email:"",
+    message:""
 
+  })
+  const handleChange=(e)=>{
+    setFormData({
+      ...formData,
+      [e.target.name]:e.target.value,
+    });
+  };
+  const handleSubmit=async(e)=>{
+    e.preventDefault();
+    try{
+      const response=await axios.post(
+          "https://sattiyash-backend.onrender.com/createcontact",
+          formData,
+          {
+            withCredentials: true,
+          }
+        );
+      console.log(response.data);
+      alert("Message sent successfully")
+      setFormData({
+        name:"",
+        email:"",
+        message:"",
+      });
+    }catch(error){
+      console.log(error);
+    
+    }
+  }
   return (
     <div className="min-h-screen lg:ml-[220px] bg-white font-jakarta pt-20">
    
@@ -33,24 +66,25 @@ const ContactPage = () => {
       <div className="flex flex-col lg:flex-row">
        
         <div className="w-full lg:w-1/2 p-6 md:p-12 border-r" style={{ borderColor: colors.divider }}>
-          <form className="space-y-6">
+          <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label style={{ color: colors.midnight }} className="text-[10px] font-black uppercase tracking-widest opacity-60">Full Name</label>
-                <input type="text" placeholder="Your Name" style={{ backgroundColor: colors.studioWhite, border: `1px solid ${colors.divider}` }} className="w-full rounded-xl px-5 py-4 text-sm focus:ring-1 focus:ring-black transition-all outline-none" />
+                <input type="text" name="name" value={formData.name} onChange={handleChange}placeholder="Your Name" style={{ backgroundColor: colors.studioWhite, border: `1px solid ${colors.divider}` }} className="w-full rounded-xl px-5 py-4 text-sm focus:ring-1 focus:ring-black transition-all outline-none" />
               </div>
               <div className="space-y-2">
                 <label style={{ color: colors.midnight }} className="text-[10px] font-black uppercase tracking-widest opacity-60">Email Address</label>
-                <input type="email" placeholder="email@example.com" style={{ backgroundColor: colors.studioWhite, border: `1px solid ${colors.divider}` }} className="w-full rounded-xl px-5 py-4 text-sm focus:ring-1 focus:ring-black transition-all outline-none" />
+                <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="email@example.com" style={{ backgroundColor: colors.studioWhite, border: `1px solid ${colors.divider}` }} className="w-full rounded-xl px-5 py-4 text-sm focus:ring-1 focus:ring-black transition-all outline-none" />
               </div>
             </div>
 
             <div className="space-y-2">
               <label style={{ color: colors.midnight }} className="text-[10px] font-black uppercase tracking-widest opacity-60">Message</label>
-              <textarea rows="5" placeholder="How can we help you?" style={{ backgroundColor: colors.studioWhite, border: `1px solid ${colors.divider}` }} className="w-full rounded-xl px-5 py-4 text-sm focus:ring-1 focus:ring-black transition-all outline-none resize-none"></textarea>
+              <textarea rows="5" name="message" value={formData.message} onChange={handleChange} placeholder="How can we help you?" style={{ backgroundColor: colors.studioWhite, border: `1px solid ${colors.divider}` }} className="w-full rounded-xl px-5 py-4 text-sm focus:ring-1 focus:ring-black transition-all outline-none resize-none"></textarea>
             </div>
 
             <button 
+            type="submit"
               style={{ backgroundColor: colors.midnight }}
               className="w-full py-5 rounded-full text-white text-[10px] font-black uppercase tracking-[0.3em] flex items-center justify-center gap-3 hover:opacity-80 transition-all shadow-xl active:scale-95 shadow-black/10"
             >

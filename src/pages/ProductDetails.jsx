@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import axios from "axios";
 import {
   ShoppingBag,
   Heart,
@@ -16,10 +17,38 @@ const ProductDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const { addToCart, addToWishlist } = useCart();
-
   const [product, setProduct] = useState(null);
-  const [selectedSize, setSelectedSize] = useState("M");
+ const allSizes=["XS","S","M","L","XL", "XXL"]
+  const [selectedSize, setSelectedSize] = useState("");
+  const { addToCart, addToWishlist } = useCart();
+      const [wishlistItems, setWishlistItems] = useState([]);
+      const [wishlist, setWishlist] = useState([]);
+      const isInWishlist =
+        wishlist?.some(
+          (item) => item.productId?._id === product?._id
+        ) || false;
+const fetchWishlist = async () => {
+  try {
+    const res = await axios.get(
+      "https://sattiyash-backend.onrender.com/getallwishlist",
+      {
+        withCredentials: true,
+      }
+    );
+
+    console.log("Backend Response:", res.data);
+
+    setWishlist(res.data.item || []);
+  } catch (error) {
+    console.log(
+      "Wishlist Fetch Error:",
+      error.response?.data
+    );
+  }
+};
+useEffect(() => {
+  fetchWishlist();
+}, []);
 
   const colors = {
     studioWhite: "#FDFDFD",
@@ -27,102 +56,27 @@ const ProductDetails = () => {
     slate: "#666666",
     divider: "#EEEEEE",
   };
-
-  const allProducts = [
-    {
-      id: 1,
-      name: "Street Oversized Tee",
-      category: "Oversized T-Shirts",
-      parentCategory: "Top Wear",
-      price: "1,499",
-      img: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?q=80&w=800",
-      desc: "Premium heavy-weight cotton fabric with a perfect boxy fit.",
-    },
-    {
-      id: 2,
-      name: "Premium Cotton Shirt",
-      category: "Premium Cotton Shirts",
-      parentCategory: "Top Wear",
-      price: "2,199",
-      img: "https://images.unsplash.com/photo-1598033129183-c4f50c717658?q=80&w=800",
-      desc: "100% Breathable cotton designed for a sharp look.",
-    },
-    {
-      id: 7,
-      name: "Graphic Street Tee",
-      category: "Graphic Tees",
-      parentCategory: "Top Wear",
-      price: "1,299",
-      img: "https://images.unsplash.com/photo-1554568212-3c16f5c75050?q=80&w=800",
-      desc: "Limited edition screen-printed artwork.",
-    },
-    {
-      id: 9,
-      name: "Studio Zip Hoodie",
-      category: "Hoodies & Jackets",
-      parentCategory: "Top Wear",
-      price: "3,299",
-      img: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=800",
-      desc: "Heavyweight fleece for maximum warmth and style.",
-    },
-    {
-      id: 3,
-      name: "Vintage Baggy Jeans",
-      category: "Baggy Jeans",
-      parentCategory: "Bottom Wear",
-      price: "3,499",
-      img: "https://images.unsplash.com/photo-1542272604-787c3835535d?q=80&w=800",
-      desc: "Classic wide-leg denim with a vintage wash.",
-    },
-    {
-      id: 4,
-      name: "Tactical Cargo Pants",
-      category: "Cargo Pants",
-      parentCategory: "Bottom Wear",
-      price: "2,899",
-      img: "https://images.unsplash.com/photo-1517423568366-8b83523034fd?q=80&w=800",
-      desc: "Utility design with reinforced stitching.",
-    },
-    {
-      id: 10,
-      name: "Essential Street Kit",
-      category: "Streetwear Essentials",
-      parentCategory: "Trending",
-      price: "1,799",
-      img: "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?q=80&w=800",
-      desc: "Must-have pieces for the current season.",
-    },
-    {
-      id: 11,
-      name: "Limited Drop Tee",
-      category: "New Drops",
-      parentCategory: "Trending",
-      price: "1,599",
-      img: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=800",
-      desc: "Freshly arrived from our studio.",
-    },
-    {
-      id: 5,
-      name: "Signature Best Seller",
-      category: "Best Sellers",
-      parentCategory: "Trending",
-      price: "1,899",
-      img: "https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?q=80&w=800",
-      desc: "The item everyone is talking about.",
-    },
-  ];
-
   useEffect(() => {
-    const foundProduct = allProducts.find(
-      (p) => String(p.id) === String(id)
-    );
+  const fetchProduct = async () => {
+    try {
+      console.log("ID from URL:", id);
 
-    if (foundProduct) {
-      setProduct(foundProduct);
+      const response = await axios.get(
+        `https://sattiyash-backend.onrender.com/products/${id}`
+      );
+
+      console.log("Response:", response.data);
+
+      setProduct(response.data.products);
+    } catch (error) {
+      console.log("Error:", error.response?.data || error.message);
     }
+  };
 
-    window.scrollTo(0, 0);
-  }, [id]);
+  fetchProduct();
+}, [id]);
+  
+
 
   if (!product)
     return (
@@ -130,7 +84,38 @@ const ProductDetails = () => {
         Product Not Found
       </div>
     );
+ const handleWishlist = async (e, productId) => {
+  e.stopPropagation();
 
+  try {
+    const isAlreadyWishlisted = wishlist?.some(
+      (item) => item.productId?._id === productId
+    );
+   console.log("Already in wishlist",isAlreadyWishlisted)
+    if (isAlreadyWishlisted) {
+      await axios.delete(
+        `https://sattiyash-backend.onrender.com/deletwishlistitem/${productId}`,
+        {
+          withCredentials: true,
+        }
+      );
+    } else {
+      await axios.post(
+        "https://sattiyash-backend.onrender.com/addtowishlist",
+        { productId },
+        {
+          withCredentials: true,
+        }
+      );
+    }
+
+    // Refresh wishlist
+    fetchWishlist();
+
+  } catch (error) {
+    console.log(error);
+  }
+};
   return (
     <div className="min-h-screen lg:ml-[220px] bg-[#FDFDFD] font-jakarta flex flex-col pt-16 lg:pt-20 overflow-hidden relative">
 
@@ -182,7 +167,7 @@ const ProductDetails = () => {
 
               {/* IMAGE */}
               <motion.img
-                src={product.img}
+                src={product.image}
                 alt={product.name}
                 whileHover={{
                   scale: 1.1,
@@ -206,7 +191,7 @@ const ProductDetails = () => {
                 className="absolute top-6 left-6"
               >
                 <span className="bg-white/90 backdrop-blur-xl px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-[0.3em] shadow-lg border border-white/40">
-                  {product.category}
+                  {product.Category}
                 </span>
               </motion.div>
 
@@ -263,17 +248,17 @@ const ProductDetails = () => {
               className="text-4xl lg:text-7xl font-black uppercase italic leading-[0.95] mb-4 tracking-tighter"
             >
               {product.name}
-              <span className="opacity-40">.</span>
+              <span className="opacity-40"></span>
             </h1>
 
             {/* PRICE */}
             <p className="text-2xl lg:text-4xl font-black mb-6 tracking-tighter drop-shadow-sm">
-              ₹{product.price}
+              ₹{product.Discounted_price}{" "}
             </p>
 
             {/* DESCRIPTION */}
             <p className="text-[13px] lg:text-sm leading-relaxed mb-10 max-w-lg font-medium text-gray-500">
-              {product.desc}
+              {product.Description}
             </p>
 
             {/* SIZE */}
@@ -285,36 +270,44 @@ const ProductDetails = () => {
               <div className="flex items-center justify-between w-full lg:max-w-md">
 
                 {/* SIZE BUTTONS */}
-                <div className="flex gap-2">
-                  {["S", "M", "L", "XL"].map((size) => (
-                    <motion.button
-                      whileHover={{
-                        y: -2,
-                      }}
-                      whileTap={{
-                        scale: 0.9,
-                      }}
-                      key={size}
-                      onClick={() => setSelectedSize(size)}
-                      style={{
-                        backgroundColor:
-                          selectedSize === size
-                            ? colors.midnight
-                            : "transparent",
-                        color:
-                          selectedSize === size
-                            ? "#fff"
-                            : colors.midnight,
-                        borderColor:
-                          selectedSize === size
-                            ? colors.midnight
-                            : colors.divider,
-                      }}
-                      className="w-11 h-11 lg:w-12 lg:h-12 flex items-center justify-center rounded-full border-2 text-[10px] font-black transition-all duration-300 hover:shadow-lg"
-                    >
-                      {size}
-                    </motion.button>
-                  ))}
+                <div className="flex gap-3 mt-4">
+                  {allSizes.map((size) => {
+                    const available =
+                      product?.Size?.includes(size) &&
+                      product?.Quantity > 0;
+
+                    return (
+                      <button
+                        key={size}
+                        disabled={!available}
+                        onClick={() => available && setSelectedSize(size)}
+                        className={`
+                          w-12 h-12 rounded-lg border
+                          transition-all
+
+                          ${
+                            selectedSize === size
+                              ? "bg-black text-white"
+                              : ""
+                          }
+
+                          ${
+                            available
+                              ? "hover:border-black cursor-pointer"
+                              : "opacity-30 cursor-not-allowed"
+                          }
+                        `}
+                      >
+                        {size}
+
+                        {!available && (
+                          <span className="ml-1 text-red-500">
+                            
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* ACTIONS */}
@@ -329,7 +322,24 @@ const ProductDetails = () => {
                     whileTap={{
                       scale: 0.9,
                     }}
-                    onClick={() => addToCart(product)}
+                    onClick={async(e)=>{
+                        e.stopPropagation();
+                        try{
+                          console.log("Adding to cart:", product._id);
+                          console.log("Product details:", product);
+                          const response=await axios.post(
+                            "https://sattiyash-backend.onrender.com/addtocart",
+                            {
+                              productId: product._id
+                            },{
+                              withCredentials: true
+                            }
+                          )
+
+                        }catch(error){
+                          console.log(error);
+                        }
+                      }}
                     style={{
                       backgroundColor: colors.midnight,
                     }}
@@ -347,13 +357,21 @@ const ProductDetails = () => {
                     whileTap={{
                       scale: 0.9,
                     }}
-                    onClick={() => addToWishlist(product)}
+                    onClick={(e) => handleWishlist(e, product._id)}
+                    
                     style={{
                       borderColor: colors.divider,
                     }}
                     className="p-4 rounded-full border-2 text-gray-300 hover:text-black bg-white shadow-lg"
                   >
-                    <Heart size={18} />
+                     <Heart
+                        size={14}
+                        className={`transition-all duration-300 ${
+                          isInWishlist
+                            ? "fill-red-500 text-red-500"
+                            : "text-black"
+                        }`}
+                      />
                   </motion.button>
                 </div>
               </div>

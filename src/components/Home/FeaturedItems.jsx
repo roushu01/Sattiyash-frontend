@@ -1,6 +1,7 @@
-import React, { useState, useRef, forwardRef } from "react";
+import React, { useState, useRef, forwardRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import {
   Heart,
   ShoppingBag,
@@ -11,70 +12,10 @@ import {
 } from "lucide-react";
 import { useCart } from "../../context/CartContext";
 
+
 /* ---------------- DATA ---------------- */
 
-const products = [
-  {
-    id: 1,
-    name: "Street Oversized Tee",
-    price: 1499,
-    discount: 20,
-    category: "Oversized T-Shirts",
-    rating: 4.8,
-    image:
-      "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&q=100",
-  },
-  {
-    id: 2,
-    name: "Premium Cotton Shirt",
-    price: 2199,
-    discount: 15,
-    category: "Premium Cotton Shirts",
-    rating: 4.6,
-    image:
-      "https://images.unsplash.com/photo-1598033129183-c4f50c717658?w=800&q=100",
-  },
-  {
-    id: 3,
-    name: "Baggy Blue Jeans",
-    price: 3499,
-    discount: 10,
-    category: "Baggy Jeans",
-    rating: 4.7,
-    image:
-      "https://images.unsplash.com/photo-1542272604-787c3835535d?w=800&q=100",
-  },
-  {
-    id: 4,
-    name: "Urban Cargo Pants",
-    price: 2899,
-    discount: 25,
-    category: "Cargo Pants",
-    rating: 4.9,
-    image:
-      "https://images.unsplash.com/photo-1542272604-787c3835535d?w=800&q=100",
-  },
-  {
-    id: 5,
-    name: "Old Money Polo",
-    price: 1899,
-    discount: 5,
-    category: "Old Money Aesthetic",
-    rating: 4.5,
-    image:
-      "https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?w=800&q=100",
-  },
-  {
-    id: 9,
-    name: "Essential Noir Hoodie",
-    price: 2999,
-    discount: 12,
-    category: "Oversized T-Shirts",
-    rating: 4.8,
-    image:
-      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&q=100",
-  },
-];
+
 
 const categories = [
   "All",
@@ -89,16 +30,70 @@ const categories = [
 const ProductCard = forwardRef(
   ({ product, isActive, onHover, onLeave }, ref) => {
     const navigate = useNavigate();
-    const { addToCart, addToWishlist, wishlist } = useCart();
-
-    const isInWishlist = wishlist.some(
-      (item) => item.id === product.id
+    const { addToCart, addToWishlist } = useCart();
+      const [wishlistItems, setWishlistItems] = useState([]);
+      const [wishlist, setWishlist] = useState([]);
+        const isInWishlist = wishlist?.some(
+      (item) => item.productId?._id === product._id
+    ) || false;
+const fetchWishlist = async () => {
+  try {
+    const res = await axios.get(
+      "https://sattiyash-backend.onrender.com/getallwishlist",
+      {
+        withCredentials: true,
+      }
     );
+
+    console.log("Backend Response:", res.data);
+
+    setWishlist(res.data.item || []);
+  } catch (error) {
+    console.log(
+      "Wishlist Fetch Error:",
+      error.response?.data
+    );
+  }
+};
+useEffect(() => {
+  fetchWishlist();
+}, []);
 
     const discountedPrice = Math.round(
       product.price * (1 - product.discount / 100)
     );
+    const handleWishlist = async (e, productId) => {
+  e.stopPropagation();
 
+  try {
+    const isAlreadyWishlisted = wishlist?.some(
+      (item) => item.productId?._id === productId
+    );
+   console.log("Already in wishlist",isAlreadyWishlisted)
+    if (isAlreadyWishlisted) {
+      await axios.delete(
+        `https://sattiyash-backend.onrender.com/deletwishlistitem/${productId}`,
+        {
+          withCredentials: true,
+        }
+      );
+    } else {
+      await axios.post(
+        "https://sattiyash-backend.onrender.com/addtowishlist",
+        { productId },
+        {
+          withCredentials: true,
+        }
+      );
+    }
+
+    // Refresh wishlist
+    fetchWishlist();
+
+  } catch (error) {
+    console.log(error);
+  }
+};
     return (
       <motion.div
         ref={ref}
@@ -118,7 +113,7 @@ const ProductCard = forwardRef(
           damping: 18,
         }}
         className="flex-shrink-0 w-[200px] sm:w-[240px] md:w-[260px] group relative cursor-pointer snap-center"
-        onClick={() => navigate(`/product/${product.id}`)}
+        onClick={() => navigate(`/products/${product._id}`)}
       >
         <div className="relative rounded-[2rem] overflow-hidden border bg-white transition-all duration-500 hover:border-black/20 shadow-sm hover:shadow-2xl">
 
@@ -132,34 +127,45 @@ const ProductCard = forwardRef(
 
             {/* Discount */}
             <span className="absolute top-4 left-4 text-white bg-black text-[8px] px-2 py-1 rounded-md font-black uppercase">
-              -{product.discount}%
+              -{product.Discount}%
             </span>
 
             {/* Wishlist */}
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                addToWishlist(product);
-              }}
-              className={`absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md shadow-sm ${
-                isInWishlist
-                  ? "bg-black text-white"
-                  : "bg-white/80 text-black"
-              }`}
-            >
-              <Heart
-                size={14}
-                fill={isInWishlist ? "currentColor" : "none"}
-              />
-            </button>
+  onClick={(e) => handleWishlist(e, product._id)}
+  className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center bg-white/80"
+>
+  <Heart
+    size={14}
+    className={`transition-all duration-300 ${
+      isInWishlist
+        ? "fill-red-500 text-red-500"
+        : "text-black"
+    }`}
+  />
+</button>
 
             {/* Add To Cart */}
             <motion.div className="absolute inset-x-0 bottom-0 p-3 translate-y-full group-hover:translate-y-0 transition">
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  addToCart(product);
-                }}
+                onClick={async(e)=>{
+                        e.stopPropagation();
+                        try{
+                          console.log("Adding to cart:", product._id);
+                          console.log("Product details:", product);
+                          const response=await axios.post(
+                            "https://sattiyash-backend.onrender.com/addtocart",
+                            {
+                              productId: product._id
+                            },{
+                              withCredentials: true
+                            }
+                          )
+
+                        }catch(error){
+                          console.log(error);
+                        }
+                      }}
                 className="w-full bg-black text-white py-3 rounded-full text-[10px] uppercase tracking-widest flex items-center justify-center gap-2"
               >
                 <ShoppingBag size={14} />
@@ -172,7 +178,7 @@ const ProductCard = forwardRef(
           <div className="p-5">
             <div className="flex justify-between mb-1">
               <span className="text-[8px] uppercase text-gray-400 tracking-widest">
-                {product.category}
+                {product.Category}
               </span>
 
               <div className="flex items-center text-[9px] font-bold">
@@ -188,7 +194,7 @@ const ProductCard = forwardRef(
             <div className="flex justify-between items-end">
               <div>
                 <span className="font-black text-sm">
-                  ₹{discountedPrice}
+                  ₹{product.Discounted_price}
                 </span>
 
                 <div className="text-[9px] line-through opacity-40">
@@ -217,15 +223,42 @@ ProductCard.displayName = "ProductCard";
 export default function FeaturedItems() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [activeIndex, setActiveIndex] = useState(null);
-
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const scrollRef = useRef(null);
   const navigate = useNavigate();
+  useEffect(() => {
+  const fetchProducts = async () => {
+    try {
+      const response = await fetch(
+        "https://sattiyash-backend.onrender.com/getbyParent/FeaturesItems"
+      );
+     
+      const result= await response.json();
 
-  const filtered = products.filter(
-    (p) =>
-      activeCategory === "All" ||
-      p.category === activeCategory
+      setProducts(result.products);
+      console.log(result.products);
+    } catch (error) {
+      console.error("Error fetching products:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchProducts();
+}, []);
+if (loading) {
+  return (
+    <div className="text-center py-20">
+      Loading Products...
+    </div>
   );
+}
+  const filtered = products.filter(
+  (p) =>
+    activeCategory === "All" ||
+    p.Category === activeCategory
+);
 
   const scroll = (dir) => {
     scrollRef.current.scrollBy({
@@ -296,7 +329,7 @@ export default function FeaturedItems() {
           <AnimatePresence>
             {filtered.map((p, i) => (
               <ProductCard
-                key={p.id}
+                key={p._id}
                 product={p}
                 isActive={activeIndex === i}
                 onHover={() => setActiveIndex(i)}

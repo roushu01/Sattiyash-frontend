@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import {
   ShoppingCart,
@@ -12,12 +13,15 @@ import {
   LayoutGrid,
   ChevronDown,
 } from "lucide-react";
+
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import LoginModal from "./LoginModal";
 import SignupModal from "./SignupModal";
 
+import {useUser,useClerk,useAuth} from "@clerk/clerk-react";
+import axios from "axios";
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState(null);
@@ -27,14 +31,15 @@ const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
 
   const { cart, wishlist } = useCart();
-
+  const { isSignedIn, user,isLoaded } = useUser();
+  const {signOut}=useClerk();
   const colors = {
     studioWhite: "#FDFDFD",
     midnight: "#111111",
     slate: "#666666",
     divider: "#EEEEEE",
   };
-
+   
   const topBarMessages = [
     { text: "Premium Studio Quality Gear", link: "Learn More" },
     { text: "Limited Edition Drop 2026", link: "Shop Now" },
@@ -107,6 +112,12 @@ const Navbar = () => {
       icon: <LayoutGrid size={14} />,
       path: "/contact",
     },
+    {
+      name:"Orders",
+      type:"link",
+      icon:<LayoutGrid size={14}/>,
+      path:"/orders"
+    }
   ];
 
   useEffect(() => {
@@ -188,27 +199,78 @@ const Navbar = () => {
           className="flex items-center gap-3 md:gap-5"
         >
           {/* LOGIN */}
-          <div className="hidden lg:flex items-center gap-4 border-r border-black/5 pr-4">
-            <motion.button
-              onClick={() => setIsLoginOpen(true)}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="text-[10px] font-black uppercase"
-            >
-              Login
-            </motion.button>
+         <div className="hidden lg:flex items-center gap-4 border-r border-black/5 pr-4">
 
-            <motion.button
-              onClick={() => setIsSignupOpen(true)}
-              whileHover={{
-                scale: 1.08,
-                boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
-              }}
-              whileTap={{ scale: 0.95 }}
-              className="bg-black text-white px-5 py-1.5 rounded-full text-[10px] font-black uppercase"
-            >
-              Sign Up
-            </motion.button>
+          <div className="hidden lg:flex items-center gap-4 border-r border-black/5 pr-4">
+
+          {
+          isLoaded && isSignedIn && user ? (
+
+          <>
+          <span className="text-[10px] font-black uppercase">
+          {
+          user?.fullName ||
+          user?.firstName ||
+          user?.emailAddresses?.[0]?.emailAddress
+          }
+          </span>
+
+          <motion.button
+          onClick={async () => {
+          try {
+            // 1. Logout from your backend
+            await axios.post(
+              "https://sattiyash-backend.onrender.com/logout",
+              {},
+              { withCredentials: true }
+            );
+
+            // 2. Logout from Clerk (VERY IMPORTANT)
+            await signOut();
+
+            // 3. Clear local storage
+            localStorage.clear();
+            sessionStorage.clear();
+
+            // 4. Redirect
+            window.location.replace("/");
+          } catch (err) {
+            console.log("Logout failed:", err);
+          }
+        }}
+  className="bg-red-500 text-white px-5 py-1.5 rounded-full text-[10px] font-black uppercase"
+>
+  Logout
+</motion.button>
+
+          </>
+
+          ) : (
+
+          <>
+
+          <motion.button
+          onClick={() => setIsLoginOpen(true)}
+          className="text-[10px] font-black uppercase"
+          >
+          Login
+          </motion.button>
+
+          <motion.button
+          onClick={() => setIsSignupOpen(true)}
+          className="bg-black text-white px-5 py-1.5 rounded-full text-[10px] font-black uppercase"
+          >
+          Sign Up
+          </motion.button>
+
+          </>
+
+          )
+
+        }
+
+          </div>
+
           </div>
 
           {/* WISHLIST */}
