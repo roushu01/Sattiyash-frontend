@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import React, { useState } from "react";
 import axios from "axios";
-import {useSignUp,useClerk,useUser} from "@clerk/clerk-react";
+
 
 import {
   X,
@@ -18,7 +18,7 @@ const SignupModal = ({
   onSwitch,
 }) => {
  
-  const {signOut}=useClerk();
+  // const {signOut}=useClerk();
   const [formData, setFormData] = useState({
       name: "",
       email: "",
@@ -56,8 +56,7 @@ const handleSignup = async (e) => {
   if (!isLoaded) return;
 
   try {
-    setShowOtp(false);
-    setOtp("");
+   
 
     const result = await signUp.create({
       emailAddress: formData.email,
@@ -65,11 +64,7 @@ const handleSignup = async (e) => {
       username: formData.email.split("@")[0],
     });
 
-    await signUp.prepareEmailAddressVerification({
-      strategy: "email_code",
-    });
-
-    setShowOtp(true);
+   
   } catch (err) {
     console.log(err);
   }
@@ -100,105 +95,7 @@ const resendOtp = async () => {
     setLoading(false);
   }
 };
-const verifyOtp = async () => {
-  try {
 
-    setLoading(true);
-
-    const result =
-      await signUp.attemptEmailAddressVerification({
-        code: otp,
-      });
-
-    console.log("RESULT:", result);
-
-    if (result.status === "complete") {
-
-      const response = await axios.post(
-        "https://sattiyash-backend.onrender.com/register",
-        {
-          clerkId: result.createdUserId,
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          refferalCode: formData.refferalCode,
-        },
-        {
-          withCredentials: true,
-        }
-      );
-
-
-
-      alert("Signup Successful");
-      
-      await setActive({
-        session: result.createdSessionId,
-      });
-      await new Promise((res) => setTimeout(res, 200));
-      window.location.reload();
-      onClose();
-
-// Reset modal state
-    
-  }
-
-  } catch (err) {
-    
-    console.log(err);
-
-    const errorCode =
-      err.errors?.[0]?.code;
-
-    if (
-      errorCode ===
-      "form_code_incorrect"
-    ) {
-
-      alert(
-        "Your OTP is wrong. Please click Resend OTP."
-      );
-
-      setOtp("");
-
-      return;
-    }
-
-    if (
-      errorCode ===
-      "verification_expired"
-    ) {
-
-      alert(
-        "OTP expired. Please click Resend OTP."
-      );
-
-      setOtp("");
-
-      return;
-    }
-
-    alert(
-      err.errors?.[0]?.message ||
-      "Verification failed"
-    );
-    setOtp("");
-
-      try {
-        await signUp?.create({});
-      } catch {}
-
-      setShowOtp(false);
-
-      return;
-
-  } finally {
-
-    // ALWAYS ENABLE BUTTONS AGAIN
-    setLoading(false);
-
-  }
-};
 
 if (!isOpen) return null;
 if (showOtp) {
